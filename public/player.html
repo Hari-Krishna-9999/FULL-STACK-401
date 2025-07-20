@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🏏 Player Info Hub</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+      background-image: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url('cric3.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      color: #fff;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 30px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.05);
+      box-shadow: 0 4px 25px rgba(0, 0, 0, 0.3);
+      backdrop-filter: blur(3px);
+    }
+
+    h2 {
+      color: #4caf50;
+      margin-bottom: 25px;
+    }
+
+    input {
+      padding: 12px;
+      width: 80%;
+      margin-bottom: 15px;
+      border: 1px solid #4caf50;
+      border-radius: 8px;
+      font-size: 16px;
+      background-color: #fff;
+      color: #333;
+    }
+
+    input:focus {
+      outline: none;
+      border-color: #388e3c;
+    }
+
+    button {
+      padding: 12px 25px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.3s;
+    }
+
+    button:hover {
+      background-color: #388e3c;
+      transform: scale(1.03);
+    }
+
+    .player-info {
+      margin-top: 25px;
+      padding: 20px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: 10px;
+      text-align: left;
+      color: #fff;
+    }
+
+    .player-photo {
+      margin: 15px auto;
+      width: 150px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
+      border: 1px solid #ccc;
+    }
+
+    .info-item {
+      margin: 10px 0;
+      font-size: 16px;
+    }
+
+    .loader {
+      border: 4px solid #eee;
+      border-top: 4px solid #4caf50;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 20px auto;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .error {
+      color: #ff5252;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>🏏 Player Info Hub</h2>
+    <input type="text" id="player" placeholder="Enter player name" onkeydown="if(event.key==='Enter') getPlayerInfo()">
+    <button onclick="getPlayerInfo()">Get Player Info</button>
+    <div class="player-info" id="info">
+      <p>Search for any player to see details</p>
+    </div>
+  </div>
+
+  <script>
+    async function getPlayerInfo() {
+      const playerName = document.getElementById('player').value.trim();
+      const infoDiv = document.getElementById('info');
+
+      if (!playerName) {
+        infoDiv.innerHTML = `<p class="error">Please enter a player name</p>`;
+        return;
+      }
+
+      infoDiv.innerHTML = `
+        <div class="loader"></div>
+        <p style="text-align: center;">Loading player data...</p>
+      `;
+
+      try {
+        const apiKey = "fb5b35ea-4988-4dfc-b032-5ba2e2b8f4bb";
+        const searchURL = `https://api.cricapi.com/v1/players?apikey=${apiKey}&search=${encodeURIComponent(playerName)}`;
+        const searchResponse = await fetch(searchURL);
+
+        if (!searchResponse.ok) throw new Error("Network response was not ok");
+
+        const searchData = await searchResponse.json();
+        if (!searchData?.data?.length) throw new Error("Player not found");
+
+        const player = searchData.data[0];
+        const playerId = player.id;
+
+        const infoURL = `https://api.cricapi.com/v1/players_info?apikey=${apiKey}&id=${playerId}`;
+        const infoResponse = await fetch(infoURL);
+        if (!infoResponse.ok) throw new Error("Could not fetch player details");
+
+        const infoData = await infoResponse.json();
+        if (!infoData?.data) throw new Error("Player details not available");
+
+        const playerInfo = infoData.data;
+        const displayName = playerInfo.fullName || playerName;
+        const birthDate = playerInfo.dateOfBirth ? playerInfo.dateOfBirth.slice(0, 10) : 'N/A';
+
+        let photo = playerInfo.image;
+
+        if (!photo) {
+          const wikiName = encodeURIComponent(displayName.replace(/\s+/g, "_"));
+          try {
+            const wikiRes = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${wikiName}`);
+            const wikiData = await wikiRes.json();
+            photo = wikiData?.thumbnail?.source;
+          } catch {
+            photo = null;
+          }
+        }
+
+        if (!photo) {
+          photo = "cric3.jpg";
+        }
+
+        infoDiv.innerHTML = `
+          <h3 style="text-align: center; color: #4caf50;">🏅 ${displayName}</h3>
+          <div style="text-align: center;">
+            <img class="player-photo" src="${photo}" alt="${displayName} photo" onerror="this.src='cric3.jpg'">
+          </div>
+          <div class="info-item"><strong>Born:</strong> ${birthDate}</div>
+          <div class="info-item"><strong>Country:</strong> ${playerInfo.country || 'N/A'}</div>
+          <div class="info-item"><strong>Role:</strong> ${playerInfo.role || 'N/A'}</div>
+          <div class="info-item"><strong>Batting Style:</strong> ${playerInfo.battingStyle || 'N/A'}</div>
+          <div class="info-item"><strong>Bowling Style:</strong> ${playerInfo.bowlingStyle || 'N/A'}</div>
+        `;
+      } catch (error) {
+        infoDiv.innerHTML = `<p class="error">❌ ${error.message}. Try another name.</p>`;
+        console.error('Error:', error);
+      }
+    }
+  </script>
+</body>
+</html>
